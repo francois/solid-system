@@ -9,4 +9,10 @@ server: server.cpp Makefile
 all: server a.out
 
 clean:
-	rm -f a.out server
+	rm -f a.out server http_parser_test
+
+http_parser_test: http_parser.h http_parser.cpp http_parser_test.cpp
+	g++ http_parser.cpp http_parser_test.cpp -o http_parser_test
+
+test: http_parser_test
+	./http_parser_test
