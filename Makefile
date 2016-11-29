@@ -1,12 +1,12 @@
-a.out: main.cpp Makefile
-	g++ main.cpp -l pqxx -l pq
+.PHONY: all clean test
 
-server: server.cpp Makefile
-	g++ server.cpp -o server
+all: server
 
-.PHONY: all clean
+run: server
+	./server
 
-all: server a.out
+server: test http_parser.h http_parser.cpp server.cpp Makefile
+	g++ http_parser.cpp server.cpp -o server
 
 clean:
 	rm -f a.out server http_parser_test
