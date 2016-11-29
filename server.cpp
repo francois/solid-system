@@ -41,6 +41,13 @@ int Server::open_socket() {
     exit(1);
   }
 
+  int yes = 1;
+  if ( -1 == setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) )
+  {
+    perror("setsockopt");
+    exit(1);
+  }
+
   struct sockaddr_in hints;
   memset(&hints, 0, sizeof(hints));
   hints.sin_family = AF_INET;
