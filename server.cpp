@@ -8,6 +8,8 @@
 #include <ext/stdio_filebuf.h>
 #include <fstream>
 
+#include "http_parser.h"
+
 class ConnectionHandler
 {
 	public:
@@ -94,33 +96,25 @@ void Server::run(ConnectionHandler& handler) {
   close(sockfd);
 }
 
-class BasicHttpParser : public ConnectionHandler
+class PGBrowserApp : public ConnectionHandler
 {
   public:
     virtual void handle(std::istream& stream)
     {
-      char buffer[2048];
-
-      // HTTP defines end-of-line as \r\n; see https://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2.2
-      // The fact that we stop after at most 2048 bytes means the URLs we will parse can't be longer than
-      // 2048 - (METHOD SPACE ... SPACE HTTP_PROTO), or about 2000 bytes. In practice, this is not going to
-      // be an issue as we're doing a very dumb HTTP parser here.
-      //
-      // One other thing we're not doing here is parsing the request's headers and body. For the example,
-      // we don't actually care about that. We only care about the request line, which contains the
-      // useful information.
-      stream.getline(buffer, sizeof(buffer) - 1, '\r');
-      std::cerr << "Read " << stream.gcount() << " bytes" << std::endl;
-      std::cout << "\"" << buffer << "\"" << std::endl;
+      std::tuple<std::string, std::string> result = parser.parse(stream);
+      std::cout << std::get<0>(result) << ", " << std::get<1>(result) << std::endl;
     }
+
+  private:
+      HttpParser parser;
 };
 
 int main()
 {
-  BasicHttpParser parser;
+  PGBrowserApp app;
 
   Server server(3000);
-  server.run(parser);
+  server.run(app);
 
   return 0;
 }
