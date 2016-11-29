@@ -5,11 +5,20 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <ext/stdio_filebuf.h>
+#include <fstream>
+
+class ConnectionHandler
+{
+	public:
+		virtual ~ConnectionHandler() {}
+		virtual void handle(std::istream&) = 0;
+};
 
 class Server {
   public:
     Server(int);
-    void run();
+    void run(ConnectionHandler&);
 
   private:
     int open_socket();
@@ -53,9 +62,7 @@ int Server::open_socket() {
   return sockfd;
 }
 
-#define HTTP_RESPONSE "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/html\r\nContent-Length: 22\r\n\r\n<h1>Hello World</h1>\r\n"
-
-void Server::run() {
+void Server::run(ConnectionHandler& handler) {
   int sockfd = this->open_socket();
   int clientfd;
 
@@ -69,8 +76,10 @@ void Server::run() {
       continue;
     }
 
-    write(clientfd, HTTP_RESPONSE, sizeof(HTTP_RESPONSE) - 1);
-    if (errno != 0) perror("write to client");
+		__gnu_cxx::stdio_filebuf<char> filebuf(clientfd, std::ios::in);
+		std::istream is(&filebuf);
+		handler.handle(is);
+
     close(clientfd);
     std::cerr << "Received connection" << std::endl;
   }
@@ -78,11 +87,33 @@ void Server::run() {
   close(sockfd);
 }
 
+class BasicHttpParser : public ConnectionHandler
+{
+  public:
+    virtual void handle(std::istream& stream)
+    {
+      char buffer[2048];
+
+      // HTTP defines end-of-line as \r\n; see https://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2.2
+      // The fact that we stop after at most 2048 bytes means the URLs we will parse can't be longer than
+      // 2048 - (METHOD SPACE ... SPACE HTTP_PROTO), or about 2000 bytes. In practice, this is not going to
+      // be an issue as we're doing a very dumb HTTP parser here.
+      //
+      // One other thing we're not doing here is parsing the request's headers and body. For the example,
+      // we don't actually care about that. We only care about the request line, which contains the
+      // useful information.
+      stream.getline(buffer, sizeof(buffer) - 1, '\r');
+      std::cerr << "Read " << stream.gcount() << " bytes" << std::endl;
+      std::cout << "\"" << buffer << "\"" << std::endl;
+    }
+};
 
 int main()
 {
+  BasicHttpParser parser;
+
   Server server(3000);
-  server.run();
+  server.run(parser);
 
   return 0;
 }
